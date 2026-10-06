@@ -6,6 +6,12 @@ the controller on your LAN. No cloud account, no API token, no credentials.
 Provides pH, water temperature, air temperature, and humidity, ready to wire into
 Home Assistant.
 
+> Status: working. Installed as a Home Assistant custom integration that sets up from
+> the UI and creates a **myfood Greenhouse** device with four sensor entities. Verified
+> on a Family22 unit (App Core v0.3.2.0) with current Home Assistant.
+
+![The myfood Greenhouse device in Home Assistant, showing pH, water temperature, air temperature, and humidity sensors](docs/home-assistant-device.png)
+
 ## Why
 
 The official path reads sensor data from myfood's cloud API, which means depending on
@@ -96,8 +102,10 @@ the HA host and add a `command_line` sensor that runs it plus four `template` se
 
 ## Roadmap
 
-- [ ] Package as a proper Home Assistant custom integration (config flow + HACS) so it
-      installs from the UI instead of a `command_line` sensor.
+- [x] Home Assistant custom integration (config-flow, UI setup, one device + entities).
+- [ ] Submit to HACS (default repository) and add a brand icon.
+- [ ] Automated parser test against a recorded render batch, to catch breakage from
+      myfood app updates.
 - [ ] Optional cloud fallback for exact UTC capture timestamps.
 
 ## Disclaimer
