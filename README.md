@@ -12,6 +12,12 @@ Home Assistant.
 
 ![The myfood Greenhouse device in Home Assistant, showing pH, water temperature, air temperature, and humidity sensors](docs/home-assistant-device.png)
 
+> **On App Core v0.6.0 with SSH access?** There's a better path than scraping: have the
+> controller **push** its readings over MQTT. See **[CLOUDLESS.md](CLOUDLESS.md)** for the
+> full setup — enabling the local MQTT broker, 5-minute cadence, the Mosquitto bridge, the
+> RTC/clock gotcha, cloud re-pointing, hardening, and a post-update checklist. The scraper
+> below remains the no-SSH fallback.
+
 ## Why
 
 The official path reads sensor data from myfood's cloud API, which means depending on

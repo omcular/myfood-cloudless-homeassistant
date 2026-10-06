@@ -1,0 +1,76 @@
+# myfood greenhouse — MQTT sensors (v0.6.0, cloudless local path)
+#
+# The myfood App Core publishes one JSON message to topic `myfood/greenhouse`
+# every `measureFrequency` ms (set to 300000 = 5 min). A Mosquitto bridge on HA
+# forwards `myfood/#` from the Pi's embedded broker into HA's broker.
+#
+# HA does NOT auto-create entities for this topic (it isn't MQTT-discovery
+# format), so define them here.
+#
+# Payload shape (all values are STRINGS, and are null on the first message after
+# the service starts):
+#   {"CaptureDate":"...","PhValue":"8.683","WaterTemperatureValue":"20.294",
+#    "InternalAirTemperatureValue":"26.0","InternalHumidityValue":"40.5",
+#    "ExternalAirTemperatureValue":null,"ExternalHumidityValue":null}
+#
+# Setup:
+#   1. Merge the `mqtt:` block below into configuration.yaml (if you already have
+#      an `mqtt:` key, add these under its existing `sensor:` list).
+#   2. Developer Tools -> YAML -> "Manually configured MQTT entities" -> Reload
+#      (no full restart needed).
+#
+# The `availability` block marks a sensor unavailable when its value is null, so
+# the null first-message doesn't clobber the last good reading.
+
+mqtt:
+  sensor:
+    - name: "Greenhouse pH"
+      unique_id: myfood_greenhouse_ph
+      state_topic: "myfood/greenhouse"
+      value_template: "{{ value_json.PhValue | float }}"
+      availability:
+        - topic: "myfood/greenhouse"
+          value_template: "{{ 'on' if value_json.PhValue not in [none, ''] else 'off' }}"
+          payload_available: "on"
+          payload_not_available: "off"
+      state_class: measurement
+      icon: mdi:ph
+
+    - name: "Greenhouse Water Temperature"
+      unique_id: myfood_greenhouse_water_temp
+      state_topic: "myfood/greenhouse"
+      value_template: "{{ value_json.WaterTemperatureValue | float }}"
+      availability:
+        - topic: "myfood/greenhouse"
+          value_template: "{{ 'on' if value_json.WaterTemperatureValue not in [none, ''] else 'off' }}"
+          payload_available: "on"
+          payload_not_available: "off"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+
+    - name: "Greenhouse Air Temperature"
+      unique_id: myfood_greenhouse_air_temp
+      state_topic: "myfood/greenhouse"
+      value_template: "{{ value_json.InternalAirTemperatureValue | float }}"
+      availability:
+        - topic: "myfood/greenhouse"
+          value_template: "{{ 'on' if value_json.InternalAirTemperatureValue not in [none, ''] else 'off' }}"
+          payload_available: "on"
+          payload_not_available: "off"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+
+    - name: "Greenhouse Humidity"
+      unique_id: myfood_greenhouse_humidity
+      state_topic: "myfood/greenhouse"
+      value_template: "{{ value_json.InternalHumidityValue | float }}"
+      availability:
+        - topic: "myfood/greenhouse"
+          value_template: "{{ 'on' if value_json.InternalHumidityValue not in [none, ''] else 'off' }}"
+          payload_available: "on"
+          payload_not_available: "off"
+      unit_of_measurement: "%"
+      device_class: humidity
+      state_class: measurement
