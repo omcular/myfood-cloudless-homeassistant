@@ -63,13 +63,26 @@ Configuration can also come from the environment: `MYFOOD_HOST`, `MYFOOD_VHOST`,
 
 ## Home Assistant
 
-See [`examples/configuration.yaml`](examples/configuration.yaml). In short: drop
-`reader.py` on the HA host, add a `command_line` sensor that runs it plus four
-`template` sensors for the individual metrics.
+The controller samples roughly **every 30 minutes**. Either method below polls every
+60 s for low latency; HA's recorder only writes a row when a value actually changes, so
+stored data stays at ~30-minute granularity regardless of poll rate.
 
-The controller samples roughly **every 30 minutes**. Poll every 60 s for low latency;
-HA's recorder only writes a row when a value actually changes, so the data stored stays
-at ~30-minute granularity regardless of how often you poll.
+### Option A — custom integration (recommended)
+
+Copy `custom_components/myfood_cloudless/` into your HA `config/custom_components/`
+directory and restart Home Assistant. Then go to **Settings -> Devices & Services ->
+Add Integration**, search for **myfood cloudless**, and enter your controller's host
+(e.g. `myfoodpi`, or an IP with the device name in the advanced *Host header* field).
+
+You get one **myfood Greenhouse** device with four sensor entities (pH, water
+temperature, air temperature, humidity), set up entirely from the UI. Home Assistant
+must be able to reach the controller on the LAN; the setup dialog reports a connection
+error if it cannot.
+
+### Option B — command_line sensor (no custom component)
+
+See [`examples/configuration.yaml`](examples/configuration.yaml): drop `reader.py` on
+the HA host and add a `command_line` sensor that runs it plus four `template` sensors.
 
 ## Limitations
 
