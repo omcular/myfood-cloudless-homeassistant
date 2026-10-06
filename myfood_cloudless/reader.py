@@ -74,7 +74,14 @@ class Reader:
         payload = bytes([0x95, 0x01, 0x80]) + _mp_str("0") + _mp_str("StartCircuit") + args
         send(_leb(len(payload)) + payload)
 
-        keys = [("pH", "ph"), ("l'eau", "water_temp"), ("l'air", "air_temp"), ("Humidit", "humidity")]
+        # Metric keywords across the UI's three languages (FR / EN / DE). The nearest
+        # term to a value wins, so "Air Humidity"/"Luftfeuchtigkeit" map to humidity
+        # rather than air. pH is matched case-sensitively so it never hits CSS ("typography").
+        metric_terms = {
+            "humidity": ("humid", "feucht"),          # Humidité / Humidity / Luftfeuchtigkeit
+            "water_temp": ("eau", "water", "wasser"),  # l'eau / Water / Wassertemperatur
+            "air_temp": ("air", "luft"),               # l'air / Air / Lufttemperatur
+        }
         blob = b""
         try:
             for _ in range(10):
@@ -84,10 +91,17 @@ class Reader:
                     pass
                 lat = blob.decode("latin-1")
                 out = {}
-                for m in re.finditer(r'mesure\x03 : .([0-9]+(?:[.,][0-9]+)?)', lat):
-                    back = lat[max(0, m.start() - 120):m.start()]
-                    metric = next((name for kw, name in keys if kw in back), None)
-                    if metric:
+                # Language-independent anchor: the " : " fragment (a 3-char string, so
+                # length-prefixed by \x03) that sits just before each value, rather than
+                # the localized word "mesure"/"Messung".
+                for m in re.finditer(r'\x03 : .([0-9]+(?:[.,][0-9]+)?)', lat):
+                    back = lat[max(0, m.start() - 60):m.start()]
+                    low = back.lower()
+                    cand = {name: max((low.rfind(t) for t in terms), default=-1)
+                            for name, terms in metric_terms.items()}
+                    cand["ph"] = back.rfind("pH")
+                    metric = max(cand, key=cand.get)
+                    if cand[metric] >= 0:
                         out[metric] = float(m.group(1).replace(",", "."))
                 if len(out) >= 4:
                     times = re.findall(r'\d{1,2}:\d{2}\s?[AP]M', lat)

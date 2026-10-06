@@ -97,8 +97,11 @@ the HA host and add a `command_line` sensor that runs it plus four `template` se
 - **Fragile by nature.** This parses rendered UI text, not a stable API. A myfood app
   update could change the layout and break the parser; then the regex in `reader.py`
   needs updating.
-- **Tested against** "myfood App Core" v0.3.2.0 on a Family22 unit. Other versions may
-  differ.
+- **Firmware differences.** Tested against "myfood App Core" v0.3.2.0 and v0.6.0 on a
+  Family22 unit. The dashboard port moved from **80** (v0.3.2.0) to **5000** (v0.6.0),
+  so set `--port`/the HA port field accordingly. The parser is language-agnostic across
+  the UI's French, English, and German, but a future firmware could still change the
+  rendered layout and need the regex updated.
 
 ## Roadmap
 
