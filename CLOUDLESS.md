@@ -250,12 +250,14 @@ A security update reflashes the card and wipes everything above.
 
 ## Relationship to the rest of this repo
 
-- The **local Blazor scraper** (`reader.py`, the HA custom integration, and `README.md`)
-  is the no-SSH fallback: it reads the rendered dashboard over the SignalR circuit and
-  needs no changes on the controller. Still works on v6 (dashboard on `:5000`), and is
-  the only path that survives a plain reflash with no shell access.
-- **This doc (MQTT path)** is the preferred setup once you have SSH: a real push stream
-  with exact timestamps and a 5-minute cadence, no UI scraping.
+- The **Blazor scraper** that earlier versions of this repo shipped read the rendered
+  dashboard over the SignalR circuit with no controller-side changes — handy on
+  **v0.3.2.0** with no SSH. It does **not** work on v0.6.0 (the dashboard renders
+  placeholder zeros first and only fills real values in a later render a headless client
+  doesn't trigger), so it has been removed from the repo; it remains in the git history
+  for anyone on older firmware.
+- **This doc (MQTT path)** is the setup for v0.6.0: a real push stream with exact
+  timestamps and a 5-minute cadence, no UI scraping. It needs SSH access to the controller.
 
 ## Disclaimer
 

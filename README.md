@@ -1,128 +1,59 @@
 # myfood-cloudless
 
-Read your [myfood](https://myfood.eu) greenhouse's sensors **locally**, straight from
-the controller on your LAN. No cloud account, no API token, no credentials.
+Run your [myfood](https://myfood.eu) greenhouse controller **cloudless**: have the
+controller push its sensor readings onto your LAN over **MQTT** so Home Assistant (or
+anything else) reads them locally — no dependence on myfood's cloud for your own data —
+plus notes on **securing** the controller. Targets **App Core v0.6.0**.
 
-Provides pH, water temperature, air temperature, and humidity, ready to wire into
-Home Assistant.
+You keep myfood's cloud working alongside this (for remote access / their web UI / their
+support), but you no longer *depend* on it for your own data.
 
-> Status: working. Installed as a Home Assistant custom integration that sets up from
-> the UI and creates a **myfood Greenhouse** device with four sensor entities. Verified
-> on a Family22 unit (App Core v0.3.2.0) with current Home Assistant.
+## What's here
 
-![The myfood Greenhouse device in Home Assistant, showing pH, water temperature, air temperature, and humidity sensors](docs/home-assistant-device.png)
+- **[CLOUDLESS.md](CLOUDLESS.md)** — the full guide and a maintained factory-image mod log:
+  enabling the controller's local MQTT broker, 5-minute cadence, the RTC/clock gotcha,
+  re-pointing the cloud after a firmware update, **security hardening**, the Home Assistant
+  **Mosquitto bridge**, and the MQTT sensors. Includes a **post-update checklist**, since a
+  myfood security update reflashes the SD card and wipes every change.
+- **[examples/homeassistant-mqtt.yaml](examples/homeassistant-mqtt.yaml)** — the four Home
+  Assistant MQTT sensors (pH, water temperature, air temperature, humidity).
 
-> **On App Core v0.6.0 with SSH access?** There's a better path than scraping: have the
-> controller **push** its readings over MQTT. See **[CLOUDLESS.md](CLOUDLESS.md)** for the
-> full setup — enabling the local MQTT broker, 5-minute cadence, the Mosquitto bridge, the
-> RTC/clock gotcha, cloud re-pointing, hardening, and a post-update checklist. The scraper
-> below remains the no-SSH fallback.
+## How it works, in one paragraph
 
-## Why
+The controller ("myfood App Core") runs an embedded MQTT broker. You enable it in
+`user.json` (the dashboard toggle doesn't persist on v6), point it at a local topic, and it
+publishes a JSON reading every measure cycle. A Mosquitto bridge on Home Assistant pulls
+that topic into HA's broker, and four MQTT sensors turn it into entities — exact timestamps,
+whatever cadence you set, no cloud round-trip.
 
-The official path reads sensor data from myfood's cloud API, which means depending on
-their servers, storing a bearer token, and (with the common Home Assistant REST setup)
-leaking that token into HA's state history. This project reads the same values directly
-from the controller instead:
+## Why cloudless
 
-- **No credentials.** The controller's local dashboard is unauthenticated.
-- **No cloud.** Works even if myfood's servers or your internet are down.
-- **Nothing sensitive stored.** There is no token to leak.
-
-## How it works
-
-The modern myfood controller ("myfood App Core") is an ASP.NET Core **Blazor Server**
-app. It renders the dashboard on the Pi and streams UI updates to the browser over a
-SignalR circuit (`/_blazor`); there is **no local REST/JSON API** to call.
-
-So this tool speaks that protocol directly:
-
-1. `GET /` to collect the page's fresh, signed Blazor component descriptors.
-2. `POST /_blazor/negotiate` to open a SignalR connection (Long Polling transport).
-3. Send the handshake, then a `StartCircuit` invocation (MessagePack) carrying those
-   descriptors.
-4. Receive the first render batch and extract the four values from it.
-5. Close the circuit cleanly.
-
-It is, in effect, a tiny headless Blazor client. See `docs/` for the wire-level detail.
+- **Your data stays local** and keeps working even if myfood's servers or your internet are down.
+- **Nothing sensitive stored** — no cloud token living in Home Assistant.
+- The cloud stays available for what it's actually good at (remote access, the web UI, support).
 
 ## Requirements
 
-- Python 3.8+ (standard library only, no dependencies).
-- Network reachability from wherever you run it to the controller on your LAN.
+- A myfood controller on **App Core v0.6.0** with SSH access (the guide covers adding a key
+  offline via the SD card).
+- Home Assistant with the **Mosquitto broker** add-on.
 
-## Usage
+## The old Blazor scraper
 
-```bash
-# If your network resolves the device name:
-python3 -m myfood_cloudless.reader --host myfoodpi
-
-# Or connect by IP and pass the device name as the HTTP Host header:
-python3 myfood_cloudless/reader.py --host 192.168.8.221 --vhost myfoodpi
-```
-
-Output is one line of JSON:
-
-```json
-{"ph": 8.2, "water_temp": 15.7, "air_temp": 16.2, "humidity": 66.0, "last_sample": "10:13 AM", "ts": 1700000000}
-```
-
-`last_sample` is the controller's own timestamp for the most recent reading (local
-time, coarse). `ts` is when this fetch ran.
-
-Configuration can also come from the environment: `MYFOOD_HOST`, `MYFOOD_VHOST`,
-`MYFOOD_PORT`.
-
-## Home Assistant
-
-The controller samples roughly **every 30 minutes**. Either method below polls every
-60 s for low latency; HA's recorder only writes a row when a value actually changes, so
-stored data stays at ~30-minute granularity regardless of poll rate.
-
-### Option A — custom integration (recommended)
-
-Copy `custom_components/myfood_cloudless/` into your HA `config/custom_components/`
-directory and restart Home Assistant. Then go to **Settings -> Devices & Services ->
-Add Integration**, search for **myfood cloudless**, and enter your controller's host
-(e.g. `myfoodpi`, or an IP with the device name in the advanced *Host header* field).
-
-You get one **myfood Greenhouse** device with four sensor entities (pH, water
-temperature, air temperature, humidity), set up entirely from the UI. Home Assistant
-must be able to reach the controller on the LAN; the setup dialog reports a connection
-error if it cannot.
-
-### Option B — command_line sensor (no custom component)
-
-See [`examples/configuration.yaml`](examples/configuration.yaml): drop `reader.py` on
-the HA host and add a `command_line` sensor that runs it plus four `template` sensors.
-
-## Limitations
-
-- **~30-minute update cadence.** That is how often the controller takes a reading;
-  polling faster just returns the same value until the next sample.
-- **Fragile by nature.** This parses rendered UI text, not a stable API. A myfood app
-  update could change the layout and break the parser; then the regex in `reader.py`
-  needs updating.
-- **Firmware differences.** Tested against "myfood App Core" v0.3.2.0 and v0.6.0 on a
-  Family22 unit. The dashboard port moved from **80** (v0.3.2.0) to **5000** (v0.6.0),
-  so set `--port`/the HA port field accordingly. The parser is language-agnostic across
-  the UI's French, English, and German, but a future firmware could still change the
-  rendered layout and need the regex updated.
-
-## Roadmap
-
-- [x] Home Assistant custom integration (config-flow, UI setup, one device + entities).
-- [ ] Submit to HACS (default repository) and add a brand icon.
-- [ ] Automated parser test against a recorded render batch, to catch breakage from
-      myfood app updates.
-- [ ] Optional cloud fallback for exact UTC capture timestamps.
+Earlier versions of this repo shipped a credential-free **Blazor scraper** plus a Home
+Assistant custom integration that read the controller's rendered dashboard directly over its
+SignalR circuit — handy on **v0.3.2.0**, where it needed no SSH. It does **not** work on
+v0.6.0 (the dashboard renders placeholder zeros first and only fills the real values in a
+later render a headless client doesn't trigger), so it has been removed in favour of the
+MQTT path. It remains in this repo's **git history** if you're on older firmware and want it.
 
 ## Disclaimer
 
-Not affiliated with or endorsed by myfood. The local protocol was determined by
-observing an ordinary browser session against the owner's own device. Use on equipment
-you own.
+Not affiliated with or endorsed by myfood. The local setup was worked out by observing the
+owner's own device; use on equipment you own. This guide deliberately omits default
+credentials and unit identifiers — if you're looking at the wider fleet rather than your own
+unit, the responsible path is coordinated disclosure to myfood.
 
 ## License
 
-MIT © Om Cular. See [`LICENSE`](LICENSE).
+MIT © Om Cular. See [LICENSE](LICENSE).
