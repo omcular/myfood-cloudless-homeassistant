@@ -44,12 +44,10 @@ kernel — the app talks to the PCF85363A directly over I²C.
 
 ## What changed v0.3.2.0 → v0.6.0 (why this doc exists)
 
-- Dashboard port **80 → 5000**.
 - The **"Local MQTT server" toggle in the UI does not persist** — flip it on and it
   reverts. Must be set in `user.json` instead (§2).
 - **Cloud device identity changed** from a MAC-derived tail to the Sigfox `AT_Id`, so a
   unit registered under the old reference gets cloud **404s** until re-pointed (§4).
-- UI may default to **French**; switch it to English or German in the admin settings.
 
 ---
 
