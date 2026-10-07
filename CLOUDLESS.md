@@ -45,13 +45,11 @@ kernel — the app talks to the PCF85363A directly over I²C.
 ## What changed v0.3.2.0 → v0.6.0 (why this doc exists)
 
 - Dashboard port **80 → 5000**.
-- Ports **locked down** — only `22` is open for a long stretch during boot; `5000`/`8080`
-  come up later. Plan for a slow boot.
 - The **"Local MQTT server" toggle in the UI does not persist** — flip it on and it
   reverts. Must be set in `user.json` instead (§2).
 - **Cloud device identity changed** from a MAC-derived tail to the Sigfox `AT_Id`, so a
   unit registered under the old reference gets cloud **404s** until re-pointed (§4).
-- UI may default to **French**; the local Blazor scraper's parser must handle FR/EN/DE.
+- UI may default to **French**; switch it to English or German in the admin settings.
 
 ---
 
@@ -76,11 +74,17 @@ passwords** on the factory image — change them (§6).
 
 ### 2. Enable the local MQTT broker / publishing (`user.json`)
 
-The UI toggle won't stick, so edit the config file directly.
+The UI toggle won't stick, so edit the config file directly. It's
+`/home/pi/share/myfoodapp.Core/user.json`, owned `root:root`, so back it up and edit it as
+root with `nano`:
 
-- File: `/home/pi/share/myfoodapp.Core/user.json` (owned `root:root`; edit via `sudo`).
-- Back it up first: `sudo cp user.json user.json.bak-$(date +%H%M%S)`.
-- Set:
+```bash
+cd /home/pi/share/myfoodapp.Core
+sudo cp user.json user.json.bak-$(date +%H%M%S)   # back up first
+sudo nano user.json
+```
+
+It's a flat JSON object — set these keys (change the values, keep the JSON valid):
 
 ```json
 "mqttEnableLocalServer": true,
@@ -88,7 +92,13 @@ The UI toggle won't stick, so edit the config file directly.
 "mqttLocalTopic": "myfood/greenhouse"
 ```
 
-- Restart: `sudo systemctl restart myfoodapp.core.service`.
+In `nano`, save with **Ctrl+O** then **Enter**, and exit with **Ctrl+X** (the on-screen
+menu may be localized — e.g. French — but the Ctrl shortcuts are the same). Then restart
+the app so it picks up the change:
+
+```bash
+sudo systemctl restart myfoodapp.core.service
+```
 
 The app then publishes one JSON message per measure cycle to the topic. **All values are
 strings, and the first message after start has `null` values** (handle that downstream):
@@ -107,8 +117,8 @@ strings, and the first message after start has `null` values** (handle that down
 
 ### 3. Measure frequency
 
-Factory default is **30 min** (`1800000` ms). For more frequent local data, in the same
-`user.json`:
+Factory default is **30 min** (`1800000` ms). For more frequent local data, edit the same
+file again (`sudo nano user.json`) and set:
 
 ```json
 "measureFrequency": 300000
@@ -124,11 +134,43 @@ as the device `reference` when pushing to the cloud. If your greenhouse is still
 registered under the **old** (MAC-derived) reference, every push returns
 *"The specified resource was not found"* (404) and the cloud graphs stop updating.
 
-**Fix (your own cloud account only):** update the greenhouse's `reference` in your
-account to match the `ProdUnitId` the admin page shows. With your own credentials this is
-a single owner/unit update against the cloud API; a confirmed push then logs
-*"Measures sent to Azure via Internet"* and the cloud resumes. Values here are
-account-specific — not published.
+**Fix (your own cloud account only):** update your greenhouse's stored `reference` to match
+the `ProdUnitId`. You do this against the cloud API with the **same credentials as your
+myfood web login**. The API is at `https://hub.myfood.eu`, with a browsable Swagger at
+`https://hub.myfood.eu/swagger` — use it to confirm the exact request shapes, which can
+change between API versions.
+
+**1. Get a bearer token:**
+
+```bash
+curl -X POST https://hub.myfood.eu/api/identity/token \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"<your-login>","password":"<your-password>"}'
+# copy data.token from the response -> use as <TOKEN> below
+```
+
+**2. Check the current record** (confirm the mismatch), with your greenhouse id:
+
+```bash
+curl -X GET "https://hub.myfood.eu/api/v1/ProductionUnit/GetProductionUnitDetailForUser?id=<GREENHOUSE_ID>" \
+  -H "Authorization: Bearer <TOKEN>" -H 'Accept: */*'
+```
+
+**3. Patch the reference** to the `ProdUnitId` from the admin page. The endpoint that
+updates the owner/unit record is `PatchProductUnitOwnerForUser` — **confirm its exact body
+in Swagger**, then send the new `reference`:
+
+```bash
+curl -X PATCH "https://hub.myfood.eu/api/v1/ProductionUnit/PatchProductUnitOwnerForUser" \
+  -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' \
+  -d '{"id":<GREENHOUSE_ID>,"reference":"<PROD_UNIT_ID>"}'
+# success response contains: "Production Unit Updated!"
+```
+
+**4. Confirm:** within a measure cycle the controller log should switch from the 404 to
+*"Measures sent to Azure via Internet"*, and the cloud dashboard resumes updating.
+
+Your login and ids are account-specific — fill in your own; nothing here is published.
 
 ### 5. Clock / RTC (PCF85363A) — the sneaky one
 
@@ -247,17 +289,6 @@ A security update reflashes the card and wipes everything above.
 `5`=airTemperature, `6`=ORP.
 
 ---
-
-## Relationship to the rest of this repo
-
-- The **Blazor scraper** that earlier versions of this repo shipped read the rendered
-  dashboard over the SignalR circuit with no controller-side changes — handy on
-  **v0.3.2.0** with no SSH. It does **not** work on v0.6.0 (the dashboard renders
-  placeholder zeros first and only fills real values in a later render a headless client
-  doesn't trigger), so it has been removed from the repo; it remains in the git history
-  for anyone on older firmware.
-- **This doc (MQTT path)** is the setup for v0.6.0: a real push stream with exact
-  timestamps and a 5-minute cadence, no UI scraping. It needs SSH access to the controller.
 
 ## Disclaimer
 
