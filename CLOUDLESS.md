@@ -210,9 +210,11 @@ show real UTC, and new `Measures.captureDate` rows should be current. Log dir:
 
 ### 6. Hardening (do this)
 
-The factory image ships with **guessable default passwords** for `pi`/`root` and a
-**default Wi-Fi AP key**. Together those mean anyone within Wi-Fi range can join the AP
-and get a shell. On your own unit:
+The factory image ships with **default `pi`/`root` passwords** and a **default Wi-Fi AP
+key**. Because they're baked into the shared factory image, they're the **same on every
+unit** that flashes it, not unique per install — so if the defaults for one unit become
+known, they apply to all. Anyone who has those defaults and is within Wi-Fi range could
+then join the AP and get a shell. On your own unit:
 
 - `passwd` and `sudo passwd root` — set strong, unique passwords.
 - Change the **Wi-Fi AP password** in the controller/OS config.
