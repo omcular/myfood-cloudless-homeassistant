@@ -1,4 +1,4 @@
-# myfood-cloudless
+# myfood-cloudless-homeassistant
 
 Run your [myfood](https://myfood.eu) greenhouse controller **cloudless**: have the
 controller push its sensor readings onto your LAN over **MQTT** so Home Assistant (or
