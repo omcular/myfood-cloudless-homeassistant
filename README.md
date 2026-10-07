@@ -8,6 +8,8 @@ plus notes on **securing** the controller. Targets **App Core v0.6.0**.
 You keep myfood's cloud working alongside this (for remote access / their web UI / their
 support), but you no longer *depend* on it for your own data.
 
+![Home Assistant showing the myfood greenhouse sensors fed over MQTT — air temperature, humidity, pH, and water temperature](docs/ha-card.png)
+
 ## What's here
 
 - **[CLOUDLESS.md](CLOUDLESS.md)** — the full guide and a maintained factory-image mod log:
