@@ -224,6 +224,23 @@ Default credentials are deliberately **not** reproduced here. If you're looking 
 fleet rather than your own unit, the responsible path is coordinated disclosure to myfood
 — not publishing defaults or unit locations.
 
+### 7. English shell (optional)
+
+The factory image is French, so an SSH shell reports errors/dates in French. For an
+English login shell **without** touching the system locale (leave the daemons as the
+image expects):
+
+```bash
+# generate the locale once — the image usually lacks it:
+sudo sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && sudo locale-gen
+# set it for your logins only (user-level, not system-wide):
+echo 'export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8' >> ~/.bashrc
+```
+
+`en_US` alone won't work — the full `en_US.UTF-8` must be generated first, or you get
+`cannot set LC_ALL: No such file or directory`. This only Englishes system/command
+output; myfood's own log strings (`identite conforme`, …) are hardcoded French.
+
 ---
 
 ## Home Assistant side
@@ -272,6 +289,7 @@ A security update reflashes the card and wipes everything above.
    greenhouse `reference` (§4).
 5. **Clock** — verify the RTC reads real time; fix via admin UI if not (§5).
 6. **HA** — the bridge reconnects on its own; confirm the four entities repopulate.
+7. **Shell locale** — regenerate `en_US.UTF-8` + re-add the `export` (§7), optional.
 
 ---
 
