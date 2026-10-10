@@ -16,3 +16,6 @@ venv/
 
 # ...but do keep documentation screenshots
 !docs/*.png
+
+# Local restore backups pulled off the Pi (site ID, SSH keys) — never publish
+*backup*/
